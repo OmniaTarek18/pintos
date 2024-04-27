@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <kernel/list.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -23,6 +24,10 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
+/* List of processes in THREAD_BLOCKED state, that is, processes
+   that are waiting for an event to occur. */
+static struct list block_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -91,6 +96,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init(&block_list);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -137,6 +143,53 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+/* Used by list_insert_ordered function to insert elements in the 
+   list by the order of increasing wake_ticks */
+bool
+compare_wake_ticks(struct list_elem *first, struct list_elem *second)
+{
+  struct thread *thread_1 = list_entry (first, struct thread, elem);
+  struct thread *thread_2 = list_entry (second, struct thread, elem);
+
+  return thread_1->wake_ticks < thread_2->wake_ticks;
+}
+
+void
+thread_sleep (int64_t ticks)
+{
+  struct thread *current;
+  enum intr_level old_level;
+
+  old_level = intr_disable();
+  current = thread_current();
+  ASSERT (current != idle_thread)
+  current -> wake_ticks = timer_ticks() + ticks;
+  list_insert_ordered(&block_list, &current->elem, compare_wake_ticks, NULL);
+  thread_block();
+  intr_set_level(old_level);
+}
+
+void
+thread_wakeup()
+{
+  struct list_elem *head;
+  struct thread *th;
+
+  while (!list_empty(&block_list))
+  {
+    head = list_front(&block_list);
+    th = list_entry(head, struct thread, elem);
+
+    if (th->wake_ticks > timer_ticks())
+    {
+      break;
+    }
+    list_remove(head);
+    thread_unblock(th);
+  }
+  
 }
 
 /* Prints thread statistics. */
