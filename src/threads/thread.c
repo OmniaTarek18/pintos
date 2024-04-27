@@ -253,7 +253,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  if(t->priority > thread_current()->priority)
+        thread_yield();
   return tid;
 }
 
@@ -389,6 +390,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -402,14 +404,13 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
   return 0;
 }
 
@@ -540,14 +541,34 @@ alloc_frame (struct thread *t, size_t size)
    empty.  (If the running thread can continue running, then it
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
+
+bool int_less(const struct list_elem *a, const struct list_elem *b, void *aux) {
+  int val_a = list_entry (a, struct thread, elem)->priority; /* Extract the integer value from element a */;
+  int val_b = list_entry (b, struct thread, elem)->priority;/* Extract the integer value from element b */;
+  return val_a < val_b;
+}
+
 static struct thread *
 next_thread_to_run (void) 
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  // if(thread_mlfqs){
+  //   // Advanced Scheduler
+  // }else{
+  //   // Priority Scheduler
+  //   struct thread * max_thread = list_entry (list_max(&ready_list, int_less, NULL), struct thread, elem);
+  //   /* Compares the max priority in ready_list to the priority of the current process */
+  //   if(max_thread->priority > thread_current()->priority){
+  //     thread_yield();
+  //     return max_thread;
+  //   }
+  //   return thread_current();
+  // }
+  return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
+
+
 
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
@@ -615,6 +636,12 @@ schedule (void)
 
   if (cur != next)
     prev = switch_threads (cur, next);
+  thread_schedule_tail (prev);
+  
+  /* Preempt the current thread if necessary */
+  if (next != idle_thread && next->priority > cur->priority)
+    thread_yield ();
+
   thread_schedule_tail (prev);
 }
 
