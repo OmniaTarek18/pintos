@@ -542,30 +542,15 @@ alloc_frame (struct thread *t, size_t size)
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
 
-bool int_less(const struct list_elem *a, const struct list_elem *b, void *aux) {
-  int val_a = list_entry (a, struct thread, elem)->priority; /* Extract the integer value from element a */;
-  int val_b = list_entry (b, struct thread, elem)->priority;/* Extract the integer value from element b */;
-  return val_a < val_b;
-}
-
 static struct thread *
 next_thread_to_run (void) 
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  // if(thread_mlfqs){
-  //   // Advanced Scheduler
-  // }else{
-  //   // Priority Scheduler
-  //   struct thread * max_thread = list_entry (list_max(&ready_list, int_less, NULL), struct thread, elem);
-  //   /* Compares the max priority in ready_list to the priority of the current process */
-  //   if(max_thread->priority > thread_current()->priority){
-  //     thread_yield();
-  //     return max_thread;
-  //   }
-  //   return thread_current();
-  // }
-  return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  if(thread_mlfqs){
+    // Advanced Scheduler
+  }else 
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 
@@ -641,8 +626,6 @@ schedule (void)
   /* Preempt the current thread if necessary */
   if (next != idle_thread && next->priority > cur->priority)
     thread_yield ();
-
-  thread_schedule_tail (prev);
 }
 
 /* Returns a tid to use for a new thread. */
