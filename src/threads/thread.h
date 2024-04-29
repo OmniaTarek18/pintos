@@ -147,4 +147,6 @@ void thread_sleep(int64_t);
 void thread_wakeup(void);
 bool compare_wake_ticks(struct list_elem  *first, struct list_elem *second);
 
+bool cmp_priority(struct list_elem* e1, struct list_elem* e2);
+
 #endif /* threads/thread.h */

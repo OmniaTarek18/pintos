@@ -561,6 +561,7 @@ next_thread_to_run (void)
     return idle_thread;
   if(thread_mlfqs){
     // Advanced Scheduler
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
   }else 
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
@@ -635,9 +636,6 @@ schedule (void)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
   
-  // /* Preempt the current thread if necessary */
-  // if (next != idle_thread && next->priority > cur->priority)
-  //   thread_yield ();
 }
 
 /* Returns a tid to use for a new thread. */
