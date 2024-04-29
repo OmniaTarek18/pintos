@@ -211,6 +211,15 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  if (lock->holder != NULL)
+  {
+    // printf(thread_current()->locked_by == NULL);
+    thread_current()->locked_by = lock;
+    // printf("%d\n",thread_current()->locked_by->holder->original_priority);
+    // printf("%d\n",lock->holder->original_priority);
+    thread_current()->isDonated = true;
+    thread_set_priority(thread_current()-> priority);
+  }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -246,6 +255,18 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+
+  if(thread_current()->original_priority != thread_current()->priority){
+    // list_sort(&thread_current()->threads_waiting_for_lock,cmp_priority, NULL);
+    if (!list_empty (&(&lock->semaphore)->waiters)){
+    list_sort (&(&lock->semaphore)->waiters, cmp_priority, NULL);
+    
+    struct thread * donor = list_entry (list_front(&(&lock->semaphore)->waiters),
+                                    struct thread, elem);
+    donor->isDonated = false;
+    thread_current()->priority = thread_current()->original_priority;
+    }   
+  }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -334,6 +355,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   if (!list_empty (&cond->waiters)){
     // printf("before sorting in cond signal %d\n", list_entry(list_begin(&list_entry (list_front(&cond->waiters), struct semaphore_elem, elem)->semaphore.waiters), struct thread, elem)->priority);
     
+    // when not used error occurs, why ????????????????????
     list_sort (&cond->waiters, cmp_cond_priority, NULL);
     // printf("after sorting in cond signal %d\n", list_entry(list_begin(&list_entry (list_front(&cond->waiters), struct semaphore_elem, elem)->semaphore.waiters), struct thread, elem)->priority);
 

@@ -103,6 +103,7 @@ thread_init (void)
   list_init (&ready_list);
   list_init(&block_list);
   list_init (&all_list);
+  
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -396,12 +397,19 @@ thread_foreach (thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-  if (new_priority >= thread_current()->priority)
-    thread_current()->priority = new_priority;
+  if(thread_current()->isDonated){
+    struct thread* thread_locking_the_lock =  thread_current()->locked_by->holder;
+    thread_locking_the_lock->priority = new_priority;
+    // printf("%d\n",thread_current()->locked_by->holder->original_priority);
+    // printf("%d\n",thread_locking_the_lock->priority);
+    // thread_unblock(thread_locking_the_lock);
+  }
+  else if (new_priority >= thread_current()->priority)
+      thread_current()->priority = new_priority;
   else
   {
     thread_current()->priority = new_priority;
-    thread_yield();
+        thread_yield();
   }
 }
 
@@ -528,6 +536,13 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+
+
+  t->locked_by = NULL;
+  t->original_priority = priority;
+  t->isDonated = false;
+  list_init(&t->threads_waiting_for_lock);
+
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
