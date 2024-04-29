@@ -196,12 +196,14 @@ void lock_acquire(struct lock *lock)
   ASSERT(!lock_held_by_current_thread(lock));
 
   struct thread *t = thread_current();
+  if(!thread_mlfqs){
   // if the acquired lock is held by another thread whose priority is less than the thread that request the lock
   if (lock->holder != NULL && lock->holder->priority < t->priority)
   {
     // set the requested lock to the lock acquired and perform priority donation
     t->requested_lock = lock;
     donate_priority(lock->holder);
+  }
   }
   // wait until the lock is released then clear the requested lock
   sema_down(&lock->semaphore);
