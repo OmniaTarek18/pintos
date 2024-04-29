@@ -239,10 +239,9 @@ void lock_release(struct lock *lock)
 {
   ASSERT(lock != NULL);
   ASSERT(lock_held_by_current_thread(lock));
-
+  if(!thread_mlfqs){
   struct thread *cur = thread_current();
   struct list_elem *e = list_begin(&cur->donar_list);
-  if(!thread_mlfqs){
   // max_priority track the highest priority encountered among donar threads
   int max_priority = cur->base_priority;
   while (e != list_end(&cur->donar_list))
