@@ -242,6 +242,7 @@ void lock_release(struct lock *lock)
 
   struct thread *cur = thread_current();
   struct list_elem *e = list_begin(&cur->donar_list);
+  if(!thread_mlfqs){
   // max_priority track the highest priority encountered among donar threads
   int max_priority = cur->base_priority;
   while (e != list_end(&cur->donar_list))
@@ -263,6 +264,7 @@ void lock_release(struct lock *lock)
     e = next;
   }
   cur->priority = max_priority;
+  }
   lock->holder = NULL;
   sema_up(&lock->semaphore);
 }
