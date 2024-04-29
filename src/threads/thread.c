@@ -89,6 +89,11 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+bool cmp_priority(struct list_elem* e1, struct list_elem* e2){
+  return list_entry(e1,struct thread,elem)->priority > list_entry(e2,struct thread,elem)->priority;
+}
+
 void
 thread_init (void) 
 {
@@ -253,7 +258,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if(t->priority > thread_current()->priority)
+  //Imediately preempt the currently running thread if the created thread has higher priority
+  if(priority > thread_current()->priority)
         thread_yield();
   return tid;
 }
@@ -291,10 +297,12 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // when unblocking a thread it is put in its correct position in the ready list
+  list_insert_ordered(&ready_list,&t->elem,cmp_priority,NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
+
 
 /* Returns the name of the running thread. */
 const char *
@@ -362,7 +370,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list,&cur->elem,cmp_priority,NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -386,11 +394,15 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) 
+void thread_set_priority(int new_priority)
 {
-  thread_current ()->priority = new_priority;
-  thread_yield();
+  if (new_priority >= thread_current()->priority)
+    thread_current()->priority = new_priority;
+  else
+  {
+    thread_current()->priority = new_priority;
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -623,9 +635,9 @@ schedule (void)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
   
-  /* Preempt the current thread if necessary */
-  if (next != idle_thread && next->priority > cur->priority)
-    thread_yield ();
+  // /* Preempt the current thread if necessary */
+  // if (next != idle_thread && next->priority > cur->priority)
+  //   thread_yield ();
 }
 
 /* Returns a tid to use for a new thread. */
