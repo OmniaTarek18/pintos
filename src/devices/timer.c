@@ -172,13 +172,16 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  // if(ticks % 4 == 0){
-  //   priority = PRI_MAX - (recent_cpu / 4) - (nice * 2);
-  // }
-  // if(ticks % TIMER_FREQ == 0){
-  //   load_avg = (59/60.0)*load_avg + (1/60.0)*ready_threads;
-  //   recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice;
-  // }
+  if(thread_mlfqs){
+    increment_recent_cpu();
+    if(ticks % 4 == 0){
+      update_p();
+    }
+    if(ticks % TIMER_FREQ == 0){
+      update_mlfqs_equ();
+    }
+  }
+  
   thread_tick ();
   thread_wakeup();
 }
