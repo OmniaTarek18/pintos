@@ -58,6 +58,7 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+static fixedpoint load_avg;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -396,6 +397,7 @@ thread_foreach (thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
+  if(thread_mlfqs) return;
   if (new_priority >= thread_current()->priority)
     thread_current()->priority = new_priority;
   else
@@ -416,31 +418,96 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  
+  enum intr_level old_level = intr_disable ();
+  thread_current ()->nice = nice;
+  thread_current ()->priority = calc_mlfqs_priority(nice,thread_current()->recent_cpu);
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  return 0;
+  return  thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return round_to_int(multiply_by_int(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return round_to_int(multiply_by_int(thread_current()->recent_cpu,100));
 }
+void 
+update_curr_thread_priority(){
+  if(thread_current() != idle_thread)
+    thread_current()-> priority = calc_mlfqs_priority(thread_current()->nice, thread_current()->recent_cpu);
+}
+int
+calc_mlfqs_priority(int nice, fixedpoint recent_cpu){
+  fixedpoint calc = convert_to_fixed_point(PRI_MAX);
+  calc = subtract_real(calc, divide_by_int(recent_cpu, 4));
+  calc = subtract_int(calc , (nice * 2));
+  int p = convert_to_int(calc);
+  if (p < PRI_MIN) p = PRI_MIN;
+  if (p > PRI_MAX) p = PRI_MAX;
+  return p;
+}
+void
+increment_recent_cpu(){
+  struct thread *cur = thread_current ();
+  // increment current thread each tick (except for idle thread)
+  if(cur != idle_thread)  cur->recent_cpu = add_to_int(cur->recent_cpu, 1);
+}
+void
+update_load_avg(){
+  int ready_thread_num = list_size(&ready_list);
+  if(thread_current() != idle_thread) ready_thread_num++ ;
+  fixedpoint n1 = divide_by_int(convert_to_fixed_point(59),60);
+  n1 = multiply_by_real(n1,load_avg);
+  fixedpoint n2 = divide_by_int(convert_to_fixed_point(1),60);
+  n2 = multiply_by_int(n2,ready_thread_num) ;
+  load_avg = add_to_real(n1, n2);
+  }
+//  recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice. 
+void
+update_recent_cpu(){
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if(idle_thread == t) continue;
+      fixedpoint calc = multiply_by_int(load_avg, 2);
+      calc = divide_by_real(calc, add_to_int(calc, 1));
+      calc = multiply_by_real(calc,t->recent_cpu);
+      calc = add_to_int(calc, t->nice); 
+      t->recent_cpu = calc; 
+      t->priority = calc_mlfqs_priority(t->recent_cpu, t->nice);
+    }
+}
+void
+update_mlfqs_equ(){
+  update_load_avg();
+  update_recent_cpu();
+}
+void
+update_p(){
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if(idle_thread == t) continue;
+      t->priority = calc_mlfqs_priority(t->recent_cpu, t->nice);
+    }
+}
+
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -529,7 +596,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-
+  t->recent_cpu = 0;
+  t->nice = 0;
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);

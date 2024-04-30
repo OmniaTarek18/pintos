@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include <kernel/list.h>
+#include "threads/fixed-point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -92,7 +93,8 @@ struct thread
     int effective_priority;
     bool isDonated;
     struct list_elem allelem;           /* List element for all threads list. */
-
+    fixedpoint recent_cpu;
+    int nice;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -148,5 +150,11 @@ void thread_wakeup(void);
 bool compare_wake_ticks(struct list_elem  *first, struct list_elem *second);
 
 bool cmp_priority(struct list_elem* e1, struct list_elem* e2);
-
+void increment_recent_cpu();
+void update_mlfqs_equ();
+void update_load_avg();
+void update_recent_cpu();
+int  calc_mlfqs_priority(int nice, fixedpoint recent_cpu);
+void update_curr_thread_priority();
+void update_p();
 #endif /* threads/thread.h */
