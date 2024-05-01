@@ -399,10 +399,11 @@ void donate_priority(struct thread *donee)
   struct thread *t = thread_current();
   ASSERT(donee != NULL);
   ASSERT(t->priority > donee->priority);
+  int depth = 0; // track the depth of nested donation levels
 
   // loop to propagate the priority donation through a chain of donees
   // this loop ensures that priority is inherited from higher to lower priority threads
-  while (donee != NULL)
+  while (donee != NULL && depth < 8)
   {
     // check if the current thread has already donated to this donee
     // this prevents redundant donations in case of nested chains of donation
@@ -423,6 +424,7 @@ void donate_priority(struct thread *donee)
     // the next iteration will operate on the donee's donee and so on
     t = donee;
     donee = donee->donee;
+    depth++;
   }
 }
 
